@@ -13,14 +13,14 @@ jobs:
       - restore_cache: 
           key: bitbucket-pipelines-cli-{{ checksum "pom.xml" }}
 
-      - run: cd bitbucket-pipelines-cli && mvn dependency:go-offline
+      - run: mvn dependency:go-offline
 
       - save_cache: 
           paths:
             - ~/.m2
           key: bitbucket-pipelines-cli-{{ checksum "pom.xml" }}
 
-      - run: cd bitbucket-pipelines-cli && mvn package && mv target/bitbucket-pipelines-cli-jar-with-dependencies.jar target/bitbucket-pipelines-cli.jar
+      - run: mvn package && mv target/bitbucket-pipelines-cli-jar-with-dependencies.jar target/bitbucket-pipelines-cli.jar
 
       - store_test_results: 
           path: bitbucket-pipelines-cli/target/surefire-reports
