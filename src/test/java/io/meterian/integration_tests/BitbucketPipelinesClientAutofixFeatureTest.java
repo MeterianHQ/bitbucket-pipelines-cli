@@ -19,9 +19,9 @@ import java.io.PrintStream;
 import java.nio.file.Paths;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class MeterianClientAutofixFeatureTest {
+public class BitbucketPipelinesClientAutofixFeatureTest {
 
-    private static final Logger log = LoggerFactory.getLogger(MeterianClientAutofixFeatureTest.class);
+    private static final Logger log = LoggerFactory.getLogger(BitbucketPipelinesClientAutofixFeatureTest.class);
 
     private TestManagement testManagement;
     private static final String CURRENT_WORKING_DIR = System.getProperty("user.dir");
@@ -74,7 +74,7 @@ public class MeterianClientAutofixFeatureTest {
 
         // Then: we should be able to see the expected output in the execution analysis output logs and the
         // reported vulnerabilities should be fixed, the changes committed to a branch and a pull request
-        // created onto the respective remote Bitbucket Frepository of the project
+        // created onto the respective remote Bitbucket repository of the project
         testManagement.verifyRunAnalysisLogs(logFile,
             new String[]{
                 "Client successfully authorized",
@@ -85,11 +85,6 @@ public class MeterianClientAutofixFeatureTest {
                 "Project information:",
                 "JAVA scan -",
                 "meterian-bot/ClientOfMutabilityDetector.git",
-                "Full report available at: ",
-                "Final results:",
-                "- security:\t100\t(minimum: 90)",
-                "- stability:\t100\t(minimum: 80)",
-                "- licensing:\t97\t(minimum: 95)",
                 "Build successful!",
                 "Finished creating pull request for org: meterian-bot, repo: meterian-bot/ClientOfMutabilityDetector, branch: fixed-by-meterian-931418a."
             },
