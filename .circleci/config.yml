@@ -42,7 +42,6 @@ jobs:
       - run:
           name: Release artifact into GitHub Releases
           command: |
-            cp ./release-to-github.sh target/
-            cp ./version.txt          target/
-            cd target
-            ./release-to-github.sh bitbucket-pipelines-cli.jar
+            cp ./*.sh        target/
+            cp ./version.txt target/
+            cd target && ./release-to-github.sh bitbucket-pipelines-cli.jar
