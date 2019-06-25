@@ -44,7 +44,7 @@ public class TestManagement {
 
     private String repoWorkspace;
     private Logger log;
-    private MeterianConsole jenkinsLogger;
+    private MeterianConsole console;
     private Map<String, String> environment;
     private UsernamePasswordCredentialsProvider credentialsProvider;
 
@@ -53,17 +53,17 @@ public class TestManagement {
                           String meterianBitbucketAppPassword,
                           String meterianBitbucketEmail,
                           Logger log,
-                          MeterianConsole jenkinsLogger) {
+                          MeterianConsole console) {
         configuration = getConfiguration(
                 repoWorkspace,
                 meterianBitbucketUser,
                 meterianBitbucketAppPassword,
                 meterianBitbucketEmail);
         this.log = log;
-        this.jenkinsLogger = jenkinsLogger;
+        this.console = console;
     }
 
-    public void runMeterianClientAndReportAnalysis(MeterianConsole jenkinsLogger) {
+    public void runMeterianClientAndReportAnalysis(MeterianConsole consoleF) {
         try {
             File clientJar = getClientJar();
             Meterian client = getMeterianClient(configuration, clientJar);
@@ -72,13 +72,13 @@ public class TestManagement {
             );
 
             ClientRunner clientRunner =
-                    new ClientRunner(client, jenkinsLogger);
+                    new ClientRunner(client, console);
 
             AutoFixFeature autoFixFeature = new AutoFixFeature(
                     configuration,
                     environment,
                     clientRunner,
-                    jenkinsLogger
+                    console
             );
 
             if (clientRunner.userHasUsedTheAutofixFlag()) {
@@ -87,7 +87,7 @@ public class TestManagement {
                 clientRunner.execute();
             }
 
-            jenkinsLogger.close();
+            console.close();
         } catch (Exception ex) {
             fail(String.format(
                     "Run meterian scan analysis: should not have failed with the exception: %s (cause: %s)", ex.getMessage(), ex.getCause()));
@@ -170,7 +170,7 @@ public class TestManagement {
                     .setRemote("origin")
                     .call();
         } catch (IOException | GitAPIException ex) {
-            jenkinsLogger.println(
+            console.println(
                     String.format("We were unable to remove a remote branch %s from the repo, " +
                             "maybe the branch does not exist or the name has changed", branchName));
         }
@@ -271,7 +271,7 @@ public class TestManagement {
 
         this.meterianBitbucketUser = meterianBitbucketUser;
         if ((meterianBitbucketUser == null) || meterianBitbucketUser.trim().isEmpty()) {
-            jenkinsLogger.println(
+            console.println(
                     "METERIAN_BITBUCKET_USER has not been set, tests will be run using the default value assumed for this environment variable");
         }
 
@@ -285,7 +285,7 @@ public class TestManagement {
 
         this.meterianBitbucketEmail = meterianBitbucketEmail;
         if ((meterianBitbucketEmail == null) || meterianBitbucketEmail.trim().isEmpty()) {
-            jenkinsLogger.println("METERIAN_BITBUCKET_EMAIL has not been set, tests will be run using the default value assumed for this environment variable");
+            console.println("METERIAN_BITBUCKET_EMAIL has not been set, tests will be run using the default value assumed for this environment variable");
         }
 
         return new BitbucketConfiguration(
@@ -303,7 +303,7 @@ public class TestManagement {
     }
 
     private Meterian getMeterianClient(BitbucketConfiguration configuration, File clientJar) {
-        return Meterian.build(configuration, environment, jenkinsLogger, NO_JVM_ARGS, clientJar);
+        return Meterian.build(configuration, environment, console, NO_JVM_ARGS, clientJar);
     }
 
     private int runCommand(String[] command, String workingFolder, Logger log) throws IOException {
@@ -320,6 +320,13 @@ public class TestManagement {
         );
 
         return task.waitFor();
+    }
+
+    // Wait for a bit for the changes to reflect across the system
+    // before querying for anything via REST API calls.
+    // It came to light during running tests on CI/CD and local machine.
+    public void waitForChangesToReflect() throws InterruptedException {
+        Thread.sleep(10);
     }
 
     private MeterianConsole nullPrintStream() {

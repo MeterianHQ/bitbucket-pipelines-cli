@@ -10,19 +10,19 @@ public class ClientRunner {
     private static final Logger log = LoggerFactory.getLogger(ClientRunner.class);
 
     private Meterian client;
-    private MeterianConsole jenkinsLogger;
+    private MeterianConsole console;
 
-    private Callable setJenkinsBuildToBreak;
+    private Callable setBuildToBreak;
 
     public ClientRunner(Meterian client,
-                        MeterianConsole jenkinsLogger) {
+                        MeterianConsole console) {
         this.client = client;
-        this.jenkinsLogger = jenkinsLogger;
+        this.console = console;
 
-        setJenkinsBuildToBreak = () -> {
+        setBuildToBreak = () -> {
             String clientFailedMsg = String.format("[meterian] Breaking build");
             log.error(clientFailedMsg);
-            jenkinsLogger.println(clientFailedMsg);
+            console.println(clientFailedMsg);
             return null;
         };
     }
@@ -36,13 +36,13 @@ public class ClientRunner {
 
                 String clientFailedMsg = String.format("Meterian client analysis failed with exit code %d", buildResult.exitCode);
                 log.error(clientFailedMsg);
-                jenkinsLogger.println(clientFailedMsg);
+                console.println(clientFailedMsg);
             }
             executionResult = buildResult.exitCode;
         } catch (Exception ex) {
             log.warn("Unexpected", ex);
-            jenkinsLogger.println("Unexpected exception!");
-            jenkinsLogger.printStackTrace(ex);
+            console.println("Unexpected exception!");
+            console.printStackTrace(ex);
         }
         return executionResult;
     }
@@ -56,6 +56,6 @@ public class ClientRunner {
     }
 
     public void breakBuild() throws Exception {
-        setJenkinsBuildToBreak.call();
+        setBuildToBreak.call();
     }
 }

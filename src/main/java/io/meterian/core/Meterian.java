@@ -30,8 +30,8 @@ import java.util.*;
 public class Meterian {
 
     private static final String METERIAN_API_TOKEN_ABSENT_WARNING =
-            "[meterian] Warning: METERIAN_API_TOKEN has not been set in the config (please check meterian settings in " +
-                    "Manage Jenkins), cannot run meterian client without this setting.";
+            "[meterian] Warning: METERIAN_API_TOKEN has not been set in the config (please check for settings in " +
+                    "Bitbucket Settings > Account Variables of your Bitbucket account interface), cannot create pull request without this setting.";
 
     public static class Result {
 

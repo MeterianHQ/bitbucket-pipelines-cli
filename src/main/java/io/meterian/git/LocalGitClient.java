@@ -34,7 +34,7 @@ public class LocalGitClient {
     private final Git git;
     private final String meterianBitbucketUser;  // Machine User name
     private final String meterianBitbucketEmail; // Email associated with the Machine User
-    private MeterianConsole jenkinsLogger;
+    private MeterianConsole console;
     private String currentBranch;
     private UsernamePasswordCredentialsProvider credentialsProvider;
 
@@ -42,14 +42,14 @@ public class LocalGitClient {
                           String meterianBitbucketUser,
                           String meterianBitbucketAppPassword,
                           String meterianBitbucketEmail,
-                          MeterianConsole jenkinsLogger) {
+                          MeterianConsole console) {
         credentialsProvider = new UsernamePasswordCredentialsProvider(
                 meterianBitbucketUser, meterianBitbucketAppPassword);
 
         this.meterianBitbucketUser = meterianBitbucketUser;
         this.meterianBitbucketEmail = meterianBitbucketEmail;
 
-        this.jenkinsLogger = jenkinsLogger;
+        this.console = console;
 
         log.info(String.format("Workspace (path to the bitbucket repo): %s", pathToRepo));
         try {
@@ -139,7 +139,7 @@ public class LocalGitClient {
                 } else {
                     String branchAlreadyExistsWarning = String.format(REMOTE_BRANCH_ALREADY_EXISTS_WARNING, currentBranch);
                     log.warn(branchAlreadyExistsWarning);
-                    jenkinsLogger.println(branchAlreadyExistsWarning);
+                    console.println(branchAlreadyExistsWarning);
                 }
             } else {
                 log.debug("Current branch was not created by Meterian");
@@ -148,7 +148,7 @@ public class LocalGitClient {
             String couldNotPushDueToError =
                     String.format("Could not push branch %s to remote repo due to error: %s", currentBranch, ex.getMessage());
             log.error(couldNotPushDueToError, ex);
-            jenkinsLogger.println(couldNotPushDueToError);
+            console.println(couldNotPushDueToError);
 
             throw new RuntimeException(ex);
         }
