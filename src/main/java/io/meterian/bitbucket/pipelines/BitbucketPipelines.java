@@ -5,6 +5,7 @@ import io.meterian.AutoFixFeature;
 import io.meterian.ClientRunner;
 import io.meterian.MeterianConsole;
 import io.meterian.core.Meterian;
+import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,21 +29,21 @@ public class BitbucketPipelines {
         if ((args == null) || (args.length == 0)) {
             exitCode = main.runMeterianScanner("");
         } else {
-            exitCode = main.runMeterianScanner(args[0]);
+            exitCode = main.runMeterianScanner(args);
         }
 
         log.info("Bitbucket Pipelines app finished");
         System.exit(exitCode);
     }
 
-    private int runMeterianScanner(String cliArg) throws Exception {
+    private int runMeterianScanner(String... cliArgs) throws Exception {
         String currentDirectory = System.getProperty("user.dir");
         environment = getOSEnvSettings();
         environment.put("WORKSPACE", currentDirectory == null ? "." : currentDirectory);
 
         BitbucketConfiguration configuration = getConfiguration();
 
-        File logFile = File.createTempFile("jenkins-logger-", Long.toString(System.nanoTime()));
+        File logFile = File.createTempFile("bitbucket-pipelines-cli-logger-", Long.toString(System.nanoTime()));
         MeterianConsole console = new MeterianConsole(new PrintStream(logFile));
         Meterian client = Meterian.build(
                 configuration,
@@ -52,10 +53,11 @@ public class BitbucketPipelines {
 
         if (! client.requiredEnvironmentVariableHasBeenSet()) {
             console.println("Required environment variable has not been set");
-            return 0;
+            return -1;
         }
 
-        client.prepare("--interactive=false", cliArg);
+        String[] composedCliArgs = (String[]) ArrayUtils.add(new String[]{"--interactive=false"}, cliArgs);
+        client.prepare(composedCliArgs);
 
         ClientRunner clientRunner = new ClientRunner(client, console);
         int exitCode = -1;

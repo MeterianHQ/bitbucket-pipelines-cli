@@ -67,7 +67,9 @@ public class TestManagement {
         try {
             File clientJar = getClientJar();
             Meterian client = getMeterianClient(configuration, clientJar);
-            client.prepare("--interactive=false", "--autofix");
+            client.prepare(
+                    "--interactive=false", "--autofix"
+            );
 
             ClientRunner clientRunner =
                     new ClientRunner(client, jenkinsLogger);

@@ -43,7 +43,8 @@ public class LocalGitClient {
                           String meterianBitbucketAppPassword,
                           String meterianBitbucketEmail,
                           MeterianConsole jenkinsLogger) {
-        credentialsProvider = new UsernamePasswordCredentialsProvider(meterianBitbucketUser, meterianBitbucketAppPassword);
+        credentialsProvider = new UsernamePasswordCredentialsProvider(
+                meterianBitbucketUser, meterianBitbucketAppPassword);
 
         this.meterianBitbucketUser = meterianBitbucketUser;
         this.meterianBitbucketEmail = meterianBitbucketEmail;
