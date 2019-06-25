@@ -10,6 +10,7 @@ import com.meterian.common.system.Shell;
 import io.meterian.*;
 import io.meterian.bitbucket.pipelines.BitbucketConfiguration;
 import io.meterian.core.Meterian;
+import io.meterian.git.LocalGitClient;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.NullOutputStream;
 import org.apache.http.client.HttpClient;
@@ -155,6 +156,26 @@ public class TestManagement {
         } catch (Exception ex) {
             fail(String.format("Cannot run the test, as we were unable to clone the target git repo due to an error: %s (cause: %s)",
                     ex.getMessage(), ex.getCause()));
+        }
+    }
+
+    public String getFixedByMeterianBranchName(String repoWorkspace, String currentBranch) throws Exception {
+        try {
+            LocalGitClient gitClient = new LocalGitClient(
+                    repoWorkspace,
+                    meterianBitbucketUser,
+                    meterianBitbucketAppPassword,
+                    meterianBitbucketUser,
+                    console
+            );
+
+            gitClient.checkoutBranch(currentBranch);
+            return String.format("fixed-by-meterian-%s", gitClient.getCurrentBranchSHA());
+        } catch (Exception ex) {
+            console.println(String.format(
+                    "Could not fetch the name of the fixed-by-meterian-xxxx branch, due to error: %s" , ex.getMessage())
+            );
+            throw new Exception(ex);
         }
     }
 

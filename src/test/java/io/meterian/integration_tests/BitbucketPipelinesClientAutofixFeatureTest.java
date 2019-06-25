@@ -34,8 +34,8 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
     private File logFile;
     private MeterianConsole console;
 
-    private String fixedByMeterianBranchName = "fixed-by-meterian-931418a";
-    private String meterianBitbucketUser = "meterian-bot";;
+    private String fixedByMeterianBranchName;
+    private String meterianBitbucketUser = "meterian-bot";
 
     @Before
     public void setup() throws IOException {
@@ -63,7 +63,7 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
     }
 
     @Test
-    public void scenario1_givenConfiguration_whenMeterianClientIsRunWithAutofixOptionForTheFirstTime_thenItShouldReturnAnalysisReportAndFixThem() throws IOException, InterruptedException {
+    public void scenario1_givenConfiguration_whenMeterianClientIsRunWithAutofixOptionForTheFirstTime_thenItShouldReturnAnalysisReportAndFixThem() throws Exception {
         // Given: we are setup to run the meterian client against a repo that has vulnerabilities
         FileUtils.deleteDirectory(new File(repoWorkspaceRootFolder));
 
@@ -76,6 +76,7 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
 
         // Deleting remote branch automatically closes any Pull Request attached to it
         testManagement.configureGitUserNameAndEmail();
+        fixedByMeterianBranchName = testManagement.getFixedByMeterianBranchName(repoWorkspace,"master");
         testManagement.closePullRequestForBranch(bitbucketRepoName, fixedByMeterianBranchName);
         testManagement.deleteRemoteBranch(repoWorkspace, fixedByMeterianBranchName);
         testManagement.waitForChangesToReflect();
