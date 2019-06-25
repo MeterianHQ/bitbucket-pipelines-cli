@@ -326,7 +326,7 @@ public class TestManagement {
     // before querying for anything via REST API calls.
     // It came to light during running tests on CI/CD and local machine.
     public void waitForChangesToReflect() throws InterruptedException {
-        Thread.sleep(10);
+        Thread.sleep(15);
     }
 
     private MeterianConsole nullPrintStream() {
