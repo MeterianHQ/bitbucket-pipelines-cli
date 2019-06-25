@@ -38,3 +38,7 @@ jobs:
 
       - store_artifacts:
           path: target/bitbucket-pipelines-cli.jar.sha256sum.txt
+
+      - run:
+          name: Release artifact into GitHub Releases
+          command: ./release-to-github.sh target/bitbucket-pipelines-cli.jar
