@@ -19,20 +19,21 @@ public class BitbucketPipelines {
 
     private static final String BASE_URL = "https://www.meterian.com";
     private static final String NO_JVM_ARGS = "";
+    private static final String NO_CLI_ARGS = "";
 
     private Map<String, String> environment = new HashMap<>();
 
     public static void main(String[] args) throws Exception {
-        log.info("Bitbucket Pipelines app started");
+        log.info("Bitbucket Pipelines CLI app started");
         BitbucketPipelines main = new BitbucketPipelines();
         int exitCode;
         if ((args == null) || (args.length == 0)) {
-            exitCode = main.runMeterianScanner("");
+            exitCode = main.runMeterianScanner(NO_CLI_ARGS);
         } else {
             exitCode = main.runMeterianScanner(args);
         }
 
-        log.info("Bitbucket Pipelines app finished");
+        log.info("Bitbucket Pipelines CLI app finished");
         System.exit(exitCode);
     }
 
@@ -56,7 +57,7 @@ public class BitbucketPipelines {
             return -1;
         }
 
-        String[] composedCliArgs = (String[]) ArrayUtils.add(new String[]{"--interactive=false"}, cliArgs);
+        String[] composedCliArgs = ArrayUtils.addAll(new String[]{"--interactive=false"}, cliArgs);
         client.prepare(composedCliArgs);
 
         ClientRunner clientRunner = new ClientRunner(client, console);
