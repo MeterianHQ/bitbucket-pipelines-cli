@@ -4,6 +4,8 @@ set -e
 set -u
 set -o pipefail
 
+CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 function uploadAsset() {
     local releaseId=$1
     local assetName=$2
@@ -33,8 +35,8 @@ function releaseArtifacts() {
       -H "Accept: application/vnd.github.v3+json" \
       -X POST -d "${POST_DATA}" "https://api.github.com/repos/${TARGET_REPO}/releases"
 
-  mkdir -p artifacts
-  CURL_OUTPUT="./artifacts/github-release.listing"
+  mkdir -p ${CURRENT_DIR}/artifacts
+  CURL_OUTPUT="${CURRENT_DIR}/artifacts/github-release.listing"
   echo "~~~~ Getting Github ReleaseId"
   curl \
       -H "Authorization: token ${METERIAN_GITHUB_TOKEN}" \
@@ -60,8 +62,8 @@ function releaseArtifacts() {
 }
 
 checkIfAssetsNeedToBeUpdated() {
-  ./fetch-assets-for-tag.sh
-  FETCH_ASSET_OUTPUT="$(cat ./artifacts/fetch.assets)"
+  ${CURRENT_DIR}/fetch-assets-for-tag.sh
+  FETCH_ASSET_OUTPUT="$(cat ${CURRENT_DIR}/artifacts/fetch.assets)"
 
   if [[ -z "${FETCH_ASSET_OUTPUT}" ]]; then
     echo "~~~~ No assets found, need to upload an update"
@@ -82,7 +84,7 @@ checkIfAssetsNeedToBeUpdated() {
     else
       echo ""
       echo "~~~~ SHA256 checksums do not match, assets are different, deleting old existing one first"
-      ./delete-release-from-github.sh $1
+      ${CURRENT_DIR}/delete-release-from-github.sh $1
     fi
   fi
 }
@@ -94,8 +96,8 @@ if [[ -z ${METERIAN_GITHUB_TOKEN} ]]; then
   exit -1
 fi
 
-RELEASE_VERSION="$(cat version.txt)"
-TAG_NAME="v$(cat version.txt)"
+RELEASE_VERSION="$(cat ${CURRENT_DIR}/version.txt)"
+TAG_NAME="v$(cat ${CURRENT_DIR}/version.txt)"
 
 echo "We will be reading version info from the version.txt file, to construct the tagname, please ensure it is the most actual."
 echo "Current TAG_NAME=${TAG_NAME}"

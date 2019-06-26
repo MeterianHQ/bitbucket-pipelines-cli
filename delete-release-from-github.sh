@@ -4,13 +4,16 @@ set -e
 set -u
 set -o pipefail
 
+CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 TARGET_REPO="MeterianHQ/bitbucket-pipelines-cli"
-RELEASE_VERSION="$(cat version.txt)"
-TAG_NAME="v$(cat version.txt)"
+RELEASE_VERSION="$(cat ${CURRENT_DIR}/version.txt)"
+TAG_NAME="v$(cat ${CURRENT_DIR}/version.txt)"
 
 echo ""
 echo "~~~~ Fetching Release ID for ${TAG_NAME}"
-CURL_OUTPUT="./artifacts/github-release.listing"
+mkdir -p ${CURRENT_DIR}/artifacts
+CURL_OUTPUT="${CURRENT_DIR}/artifacts/github-release.listing"
 curl \
     -H "Authorization: token ${METERIAN_GITHUB_TOKEN}" \
     -H "Accept: application/vnd.github.v3+json" \
