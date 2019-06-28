@@ -9,6 +9,7 @@ import com.meterian.common.system.OS;
 import com.meterian.common.system.Shell;
 import io.meterian.*;
 import io.meterian.bitbucket.pipelines.BitbucketConfiguration;
+import io.meterian.bitbucket.pipelines.BitbucketPipelines;
 import io.meterian.core.Meterian;
 import io.meterian.git.LocalGitClient;
 import org.apache.commons.io.FileUtils;
@@ -38,8 +39,8 @@ public class TestManagement {
     private static final String BASE_URL = "https://www.meterian.com";
     private static final String NO_JVM_ARGS = "";
 
-    private static final int MAX_WAIT_POLL_TIME = 5000; // seconds
-    private static final int POLL_RETRY_COUNT = 5; // number of times to poll before giving up
+    private static final int MAX_WAIT_POLL_TIME = 10_000; // seconds
+    private static final int POLL_RETRY_COUNT = 10; // number of times to poll before giving up
 
     private String meterianBitbucketUser;
     private String meterianBitbucketAppPassword;
@@ -68,31 +69,15 @@ public class TestManagement {
         this.console = console;
     }
 
-    public void runMeterianClientAndReportAnalysis(MeterianConsole consoleF) {
+    public void runPipelineCLIClientAndReportAnalysis(MeterianConsole console) {
         try {
-            File clientJar = getClientJar();
-            Meterian client = getMeterianClient(configuration, clientJar);
-            client.prepare(
-                    "--interactive=false", "--autofix"
-            );
-
-            ClientRunner clientRunner =
-                    new ClientRunner(client, console);
-
-            AutoFixFeature autoFixFeature = new AutoFixFeature(
+            BitbucketPipelines bitbucketPipelines = new BitbucketPipelines(console);
+            int exitCode = bitbucketPipelines.runMeterianScanner(
                     configuration,
                     environment,
-                    clientRunner,
-                    console
-            );
-
-            if (clientRunner.userHasUsedTheAutofixFlag()) {
-                autoFixFeature.execute();
-            } else {
-                clientRunner.execute();
-            }
-
-            console.close();
+                    "--autofix");
+            assertThat(
+                    "Meterian scanner client should NOT have terminated with a non-zero exit code", exitCode, is(0));
         } catch (Exception ex) {
             fail(String.format(
                     "Run meterian scan analysis: should not have failed with the exception: %s (cause: %s)", ex.getMessage(), ex.getCause()));

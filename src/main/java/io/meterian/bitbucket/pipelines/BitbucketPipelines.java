@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,13 +21,16 @@ public class BitbucketPipelines {
     private static final String BASE_URL = "https://www.meterian.com";
     private static final String NO_JVM_ARGS = "";
     private static final String NO_CLI_ARGS = "";
-    private static final String DEFAULT_CURRENT_DIRECTORY = ".";
 
     private Map<String, String> environment = new HashMap<>();
+    private MeterianConsole console;
 
     public static void main(String[] args) throws Exception {
         log.info("Bitbucket Pipelines CLI app started");
-        BitbucketPipelines main = new BitbucketPipelines();
+        File logFile = File.createTempFile("bitbucket-pipelines-cli-logger-", Long.toString(System.nanoTime()));
+        MeterianConsole console = new MeterianConsole(new PrintStream(logFile));
+
+        BitbucketPipelines main = new BitbucketPipelines(console);
         int exitCode;
         if ((args == null) || (args.length == 0)) {
             exitCode = main.runMeterianScanner(NO_CLI_ARGS);
@@ -38,25 +42,34 @@ public class BitbucketPipelines {
         System.exit(exitCode);
     }
 
+    public BitbucketPipelines(MeterianConsole console) {
+        this.console = console;
+    }
+
     private int runMeterianScanner(String... cliArgs) throws Exception {
-        String workspace = System.getProperty("WORKSPACE");
-        environment = getOSEnvSettings();
-        environment.put("WORKSPACE",
-                (workspace == null || workspace.isEmpty()) ? DEFAULT_CURRENT_DIRECTORY : workspace);
-
-        log.info(String.format("WORKSPACE: %s", environment.get("WORKSPACE")));
-
         BitbucketConfiguration configuration = getConfiguration();
 
-        File logFile = File.createTempFile("bitbucket-pipelines-cli-logger-", Long.toString(System.nanoTime()));
-        MeterianConsole console = new MeterianConsole(new PrintStream(logFile));
+        return runClient(configuration, cliArgs);
+    }
+
+    public int runMeterianScanner(BitbucketConfiguration configuration,
+                                  Map<String, String> environment,
+                                  String... cliArgs) throws Exception {
+        this.environment = environment;
+        return runClient(configuration, cliArgs);
+    }
+
+    private int runClient(BitbucketConfiguration configuration,
+                          String[] cliArgs) throws IOException {
+        log.info(String.format("WORKSPACE: %s", environment.get("WORKSPACE")));
+
         Meterian client = Meterian.build(
                 configuration,
                 environment,
                 console,
                 NO_JVM_ARGS);
 
-        if (! client.requiredEnvironmentVariableHasBeenSet()) {
+        if (!client.requiredEnvironmentVariableHasBeenSet()) {
             console.println("Required environment variable has not been set");
             return -1;
         }
@@ -67,7 +80,7 @@ public class BitbucketPipelines {
         ClientRunner clientRunner = new ClientRunner(client, console);
         int exitCode = -1;
         if (clientRunner.userHasUsedTheAutofixFlag()) {
-           exitCode = new AutoFixFeature(
+            exitCode = new AutoFixFeature(
                     configuration,
                     environment,
                     clientRunner,

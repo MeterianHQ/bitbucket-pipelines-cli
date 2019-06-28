@@ -80,7 +80,7 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
         testManagement.deleteRemoteBranch(repoWorkspace, fixedByMeterianBranchName);
 
         // When: the meterian client is run against the locally cloned gitF repo w2ith the autofix feature (--autofix) passed as a CLI arg
-        testManagement.runMeterianClientAndReportAnalysis(console);
+        testManagement.runPipelineCLIClientAndReportAnalysis(console);
 
         // Then: we should be able to see the expected output in the execution analysis output logs and the
         // reported vulnerabilities should be fixed, the changes committed to a branch and a pull request
