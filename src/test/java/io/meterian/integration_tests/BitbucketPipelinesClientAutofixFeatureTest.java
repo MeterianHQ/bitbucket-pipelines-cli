@@ -1,5 +1,6 @@
 package io.meterian.integration_tests;
 
+import com.meterian.common.system.OS;
 import io.meterian.MeterianConsole;
 import io.meterian.test_management.TestManagement;
 
@@ -35,7 +36,7 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
     private MeterianConsole console;
 
     private String fixedByMeterianBranchName;
-    private String meterianBitbucketUser = "meterian-bot";
+    private String meterianBitbucketUser;
 
     @Before
     public void setup() throws IOException {
@@ -43,8 +44,9 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
         console = new MeterianConsole(new PrintStream(logFile));
         log.info("Bitbucket Pipelines CLI log file: " + logFile.toPath().toString());
 
-        String meterianBitbucketAppPassword = System.getenv("METERIAN_BITBUCKET_APP_PASSWORD");
-        String meterianBitbucketEmail = "bot.bitbucket@meterian.io";
+        meterianBitbucketUser = new OS().getenv("METERIAN_BITBUCKET_USER");
+        String meterianBitbucketAppPassword = new OS().getenv("METERIAN_BITBUCKET_APP_PASSWORD");
+        String meterianBitbucketEmail = new OS().getenv("METERIAN_BITBUCKET_EMAIL");
 
         testManagement = new TestManagement(
                 repoWorkspace,

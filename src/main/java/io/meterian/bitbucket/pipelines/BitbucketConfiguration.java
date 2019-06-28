@@ -6,9 +6,6 @@ public class BitbucketConfiguration implements HttpClientFactory.Config {
     private static final String DEFAULT_BASE_URL = "https://www.meterian.io";
     private static final int ONE_MINUTE = 60 * 1000;
 
-    private static final String DEFAULT_METERIAN_BITBUCKET_USER = "meterian-bot";               // Machine User name, when user does not set one
-    private static final String DEFAULT_METERIAN_BITBUCKET_EMAIL = "bot.bitbucket@meterian.io"; // Email associated with the Machine User, when user does not set one
-
     private final String baseUrl;
     private final String meterianAPIToken;
 
@@ -56,9 +53,6 @@ public class BitbucketConfiguration implements HttpClientFactory.Config {
     }
 
     public String getMeterianBitbucketUser() {
-        if ((meterianBitbucketUser == null) || meterianBitbucketUser.trim().isEmpty()) {
-            return DEFAULT_METERIAN_BITBUCKET_USER;
-        }
         return meterianBitbucketUser;
     }
 
@@ -67,9 +61,6 @@ public class BitbucketConfiguration implements HttpClientFactory.Config {
     }
 
     public String getMeterianBitbucketEmail() {
-        if ((meterianBitbucketEmail == null) || meterianBitbucketEmail.trim().isEmpty()) {
-            return DEFAULT_METERIAN_BITBUCKET_EMAIL;
-        }
         return meterianBitbucketEmail;
     }
 

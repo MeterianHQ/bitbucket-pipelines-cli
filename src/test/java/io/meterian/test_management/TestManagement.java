@@ -10,11 +10,8 @@ import com.meterian.common.system.Shell;
 import io.meterian.*;
 import io.meterian.bitbucket.pipelines.BitbucketConfiguration;
 import io.meterian.bitbucket.pipelines.BitbucketPipelines;
-import io.meterian.core.Meterian;
 import io.meterian.git.LocalGitClient;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.output.NullOutputStream;
-import org.apache.http.client.HttpClient;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.RefSpec;
@@ -26,12 +23,13 @@ import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.*;
 
+import static junit.framework.TestCase.assertTrue;
 import static junit.framework.TestCase.fail;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 
 public class TestManagement {
@@ -297,27 +295,20 @@ public class TestManagement {
         environment.put("WORKSPACE", repoWorkspace);
 
         String meterianAPIToken = environment.get("METERIAN_API_TOKEN");
-        assertThat(
-                "METERIAN_API_TOKEN has not been set, cannot run test without a valid value", meterianAPIToken, notNullValue());
+        assertValidityOf("METERIAN_API_TOKEN", meterianAPIToken);
 
         this.meterianBitbucketUser = meterianBitbucketUser;
-        if ((meterianBitbucketUser == null) || meterianBitbucketUser.trim().isEmpty()) {
-            console.println(
-                    "METERIAN_BITBUCKET_USER has not been set, tests will be run using the default value assumed for this environment variable");
-        }
+        assertValidityOf("METERIAN_BITBUCKET_USER", meterianBitbucketUser);
 
         this.meterianBitbucketAppPassword = meterianBitbucketAppPassword;
-        assertThat(
-                "METERIAN_BITBUCKET_APP_PASSWORD has not been set, cannot run test without a valid value", meterianBitbucketAppPassword, notNullValue());
+        assertValidityOf("METERIAN_BITBUCKET_APP_PASSWORD", meterianBitbucketAppPassword);
 
         credentialsProvider = new UsernamePasswordCredentialsProvider(
                 meterianBitbucketUser,
                 meterianBitbucketAppPassword);
 
         this.meterianBitbucketEmail = meterianBitbucketEmail;
-        if ((meterianBitbucketEmail == null) || meterianBitbucketEmail.trim().isEmpty()) {
-            console.println("METERIAN_BITBUCKET_EMAIL has not been set, tests will be run using the default value assumed for this environment variable");
-        }
+        assertValidityOf("METERIAN_BITBUCKET_EMAIL", meterianBitbucketEmail);
 
         return new BitbucketConfiguration(
                 BASE_URL,
@@ -329,12 +320,10 @@ public class TestManagement {
                 meterianBitbucketAppPassword);
     }
 
-    private File getClientJar() throws IOException {
-        return new ClientDownloader(newHttpClient(), BASE_URL, nullPrintStream()).load();
-    }
-
-    private Meterian getMeterianClient(BitbucketConfiguration configuration, File clientJar) {
-        return Meterian.build(configuration, environment, console, NO_JVM_ARGS, clientJar);
+    private void assertValidityOf(String variableName, String variableValue) {
+        String reason = String.format("%s has not been set, cannot run test without a valid value", variableName);
+        assertThat(reason, variableValue, notNullValue());
+        assertFalse(reason, variableValue.isEmpty());
     }
 
     private int runCommand(String[] command, String workingFolder, Logger log) throws IOException {
@@ -351,40 +340,5 @@ public class TestManagement {
         );
 
         return task.waitFor();
-    }
-
-    private MeterianConsole nullPrintStream() {
-        return new MeterianConsole(
-                new PrintStream(new NullOutputStream())
-        );
-    }
-
-    private static HttpClient newHttpClient() {
-        return new HttpClientFactory().newHttpClient(new HttpClientFactory.Config() {
-            @Override
-            public int getHttpConnectTimeout() {
-                return Integer.MAX_VALUE;
-            }
-
-            @Override
-            public int getHttpSocketTimeout() {
-                return Integer.MAX_VALUE;
-            }
-
-            @Override
-            public int getHttpMaxTotalConnections() {
-                return 100;
-            }
-
-            @Override
-            public int getHttpMaxDefaultConnectionsPerRoute() {
-                return 100;
-            }
-
-            @Override
-            public String getHttpUserAgent() {
-                // TODO Auto-generated method stub
-                return null;
-            }});
     }
 }

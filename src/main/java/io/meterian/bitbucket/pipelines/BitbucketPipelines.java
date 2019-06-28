@@ -24,6 +24,7 @@ public class BitbucketPipelines {
 
     private Map<String, String> environment = new HashMap<>();
     private MeterianConsole console;
+    private boolean oneOrMoreErrors = false;
 
     public static void main(String[] args) throws Exception {
         log.info("Bitbucket Pipelines CLI app started");
@@ -94,6 +95,8 @@ public class BitbucketPipelines {
     }
 
     private BitbucketConfiguration getConfiguration() {
+        environment = getOSEnvSettings();
+
         String meterianAPIToken =
                 reportErrorIfEnvironmentVariableIsAbsent("METERIAN_API_TOKEN");
 
@@ -101,12 +104,18 @@ public class BitbucketPipelines {
                 reportErrorIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_APP_PASSWORD");
 
         String meterianBitbucketUser =
-                reportWarningIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_USER");
+                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_USER");
 
         String meterianBitbucketEmail =
-                reportWarningIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_EMAIL");
+                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_EMAIL");
+
+        if (oneOrMoreErrors) {
+            log.warn("Exiting, due to unset environment variables");
+            System.exit(-1);
+        }
 
         String repoWorkspace = environment.getOrDefault("WORKSPACE", ".");
+
         return new BitbucketConfiguration(
                 BASE_URL,
                 meterianAPIToken,
@@ -117,18 +126,12 @@ public class BitbucketPipelines {
                 meterianBitbucketAppPassword);
     }
 
-    private String reportWarningIfEnvironmentVariableIsAbsent(String environmentVariableName) {
-        String value = environment.get(environmentVariableName);
-        if ((value == null) || value.trim().isEmpty()) {
-            log.warn(String.format("%s has not been set, scan will be Meterian Scanner using the default value assumed for this environment variable", environmentVariableName));
-        }
-        return value;
-    }
-
     private String reportErrorIfEnvironmentVariableIsAbsent(String environmentVariableName) {
         String value = environment.get(environmentVariableName);
         if ((value == null) || (value.trim().isEmpty())) {
+            oneOrMoreErrors = true;
             log.error(String.format("%s has not been set, cannot run Meterian Scanner without a valid value", environmentVariableName));
+
         }
         return value;
     }

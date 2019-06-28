@@ -18,6 +18,9 @@ public class LocalBitBucketClient {
 
     static final Logger log = LoggerFactory.getLogger(LocalBitBucketClient.class);
 
+    private static final String METERIAN_BITBUCKET_USER_ABSENT_WARNING =
+            "[meterian] Warning: METERIAN_BITBUCKET_USER has not been set in the config (please check for settings in " +
+                    "Bitbucket Settings > Account Variables of your Bitbucket account interface), cannot create pull request without this setting.";
     private static final String METERIAN_BITBUCKET_APP_PASSWORD_ABSENT_WARNING =
             "[meterian] Warning: METERIAN_BITBUCKET_APP_PASSWORD has not been set in the config (please check for settings in " +
                     "Bitbucket Settings > Account Variables of your Bitbucket account interface), cannot create pull request without this setting.";
@@ -39,22 +42,28 @@ public class LocalBitBucketClient {
     private static final boolean PULL_REQUEST_FOR_BRANCH_FOUND = true;
     private static final boolean PULL_REQUEST_FOR_BRANCH_NOT_FOUND = false;
 
-    private String bitbucketMachineUser;
+    private String bitbucketUser;
     private String bitbucketAppPassword;
     private final String orgOrUserName;
     private final String repoName;
     private final MeterianConsole console;
 
-    public LocalBitBucketClient(String bitbucketMachineUser,
+    public LocalBitBucketClient(String bitbucketUser,
                                 String bitbucketAppPassword,
                                 String orgOrUserName,
                                 String repoName,
                                 MeterianConsole console) {
-        this.bitbucketMachineUser = bitbucketMachineUser;
+        this.bitbucketUser = bitbucketUser;
         this.bitbucketAppPassword = bitbucketAppPassword;
         this.orgOrUserName = orgOrUserName;
         this.repoName = repoName;
         this.console = console;
+
+        if (bitbucketUser == null || bitbucketUser.isEmpty()) {
+            log.warn(METERIAN_BITBUCKET_USER_ABSENT_WARNING);
+            console.println(METERIAN_BITBUCKET_USER_ABSENT_WARNING);
+            return;
+        }
 
         if (bitbucketAppPassword == null || bitbucketAppPassword.isEmpty()) {
             log.warn(METERIAN_BITBUCKET_APP_PASSWORD_ABSENT_WARNING);
@@ -93,7 +102,7 @@ public class LocalBitBucketClient {
                 Unirest.post(String.format(
                         "https://api.bitbucket.org/2.0/repositories/%s/pullrequests",
                         repository))
-                        .basicAuth(bitbucketMachineUser, bitbucketAppPassword)
+                        .basicAuth(bitbucketUser, bitbucketAppPassword)
                         .header("content-type", "application/json")
                         .header("accept", "application/json")
                         .body(String.format("{\n" +
