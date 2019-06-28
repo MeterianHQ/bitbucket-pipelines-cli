@@ -57,7 +57,6 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
 
     @After
     public void tearDown() throws InterruptedException {
-        testManagement.waitForChangesToReflect();
         testManagement.closePullRequestForBranch(bitbucketRepoName, fixedByMeterianBranchName);
         testManagement.deleteRemoteBranch(repoWorkspace, fixedByMeterianBranchName);
     }
@@ -79,9 +78,8 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
         fixedByMeterianBranchName = testManagement.getFixedByMeterianBranchName(repoWorkspace,"master");
         testManagement.closePullRequestForBranch(bitbucketRepoName, fixedByMeterianBranchName);
         testManagement.deleteRemoteBranch(repoWorkspace, fixedByMeterianBranchName);
-        testManagement.waitForChangesToReflect();
 
-        // When: the meterian client is run against the locally cloned gitF repo with the autofix feature (--autofix) passed as a CLI arg
+        // When: the meterian client is run against the locally cloned gitF repo w2ith the autofix feature (--autofix) passed as a CLI arg
         testManagement.runMeterianClientAndReportAnalysis(console);
 
         // Then: we should be able to see the expected output in the execution analysis output logs and the

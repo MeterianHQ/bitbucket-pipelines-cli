@@ -20,6 +20,7 @@ import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.junit.Assert;
 import org.slf4j.Logger;
 
 import java.io.File;
@@ -36,6 +37,9 @@ public class TestManagement {
 
     private static final String BASE_URL = "https://www.meterian.com";
     private static final String NO_JVM_ARGS = "";
+
+    private static final int MAX_WAIT_POLL_TIME = 5000; // seconds
+    private static final int POLL_RETRY_COUNT = 5; // number of times to poll before giving up
 
     private String meterianBitbucketUser;
     private String meterianBitbucketAppPassword;
@@ -197,11 +201,12 @@ public class TestManagement {
         }
     }
 
-    public void closePullRequestForBranch(String bitbucketRepoName, String branchName) {
+    public void closePullRequestForBranch(String bitbucketRepoName, String branchName) throws InterruptedException {
+        log.info(String.format("Attempting to close pull request for linked branch %s", branchName));
         try {
             String pullRequestId = getOpenPullRequestIdForBranch(bitbucketRepoName, branchName);
             if (pullRequestId.isEmpty()) {
-                log.info(String.format("No pull request for linked to branch %s proceeding forward", branchName));
+                log.info(String.format("No pull request for linked branch %s, proceeding forward", branchName));
                 return;
             }
 
@@ -214,12 +219,32 @@ public class TestManagement {
                     )
             ).basicAuth(meterianBitbucketUser, meterianBitbucketAppPassword)
                     .asString();
+
+            pollToCheckIfPullRequestIsClosed(bitbucketRepoName, branchName);
         } catch (UnirestException ex) {
             log.error(
                     String.format(
                             "Error trying to close pull request, due to %s (cause: %s)",
                             ex.getMessage(), ex.getCause()), ex);
         }
+    }
+
+    private void pollToCheckIfPullRequestIsClosed(
+            String bitbucketRepoName, String branchName) throws UnirestException, InterruptedException {
+        int retryCount = 0;
+        while (getOpenPullRequestIdForBranch(bitbucketRepoName, branchName).isEmpty()) {
+            // Wait for a bit for the changes to reflect across the system
+            // before querying for anything via REST API calls.
+            // It came to light during running tests on CI/CD and local machine.
+            Thread.sleep(MAX_WAIT_POLL_TIME);
+            retryCount++;
+            if (retryCount == POLL_RETRY_COUNT) {
+                String retryFailedMessage = String.format("Giving up, pull request linked to branch still NOT closed %s, cannot proceed forward.", branchName);
+                log.error(retryFailedMessage);
+                Assert.fail(retryFailedMessage);
+            }
+        }
+        log.info(String.format("Pull request for linked branch %s is closed, proceeding forward", branchName));
     }
 
     private String getOpenPullRequestIdForBranch(String bitbucketRepoName, String branchName) throws UnirestException {
@@ -341,13 +366,6 @@ public class TestManagement {
         );
 
         return task.waitFor();
-    }
-
-    // Wait for a bit for the changes to reflect across the system
-    // before querying for anything via REST API calls.
-    // It came to light during running tests on CI/CD and local machine.
-    public void waitForChangesToReflect() throws InterruptedException {
-        Thread.sleep(15);
     }
 
     private MeterianConsole nullPrintStream() {

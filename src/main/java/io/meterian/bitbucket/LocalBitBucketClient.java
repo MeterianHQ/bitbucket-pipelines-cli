@@ -36,6 +36,9 @@ public class LocalBitBucketClient {
     private static final String PULL_REQUEST_CREATION_ACTION = "Creating pull request for org: %s, repo: %s, branch: %s";
     private static final String PULL_REQUEST_FETCHING_ERROR = "Error occurred while fetching pull requests due to: %s";
 
+    private static final boolean PULL_REQUEST_FOR_BRANCH_FOUND = true;
+    private static final boolean PULL_REQUEST_FOR_BRANCH_NOT_FOUND = false;
+
     private String bitbucketMachineUser;
     private String bitbucketAppPassword;
     private final String orgOrUserName;
@@ -61,7 +64,10 @@ public class LocalBitBucketClient {
     }
 
     public void createPullRequest(String branchName) {
-        if (pullRequestDoesNotExist(branchName)) {
+        if (pullRequestExists(branchName)) {
+            log.warn(PULL_REQUEST_ALREADY_EXISTS_WARNING);
+            console.println(PULL_REQUEST_ALREADY_EXISTS_WARNING);
+        } else {
             log.info(String.format(
                     PULL_REQUEST_CREATION_ACTION, orgOrUserName, repoName, branchName
             ));
@@ -75,9 +81,6 @@ public class LocalBitBucketClient {
                 log.error(String.format(PULL_REQUEST_CREATION_ERROR, ex.getMessage()), ex);
                 throw new RuntimeException(ex);
             }
-        } else {
-            log.warn(PULL_REQUEST_ALREADY_EXISTS_WARNING);
-            console.println(PULL_REQUEST_ALREADY_EXISTS_WARNING);
         }
     }
 
@@ -112,7 +115,7 @@ public class LocalBitBucketClient {
         return response.getBody();
     }
 
-    private boolean pullRequestDoesNotExist(String branchName) {
+    private boolean pullRequestExists(String branchName) {
         log.info(String.format(
                 PULL_REQUEST_FETCHING_ACTION, orgOrUserName, repoName, branchName
         ));
@@ -126,8 +129,11 @@ public class LocalBitBucketClient {
                 );
                 log.warn(foundPullRequestWarning);
                 console.println(foundPullRequestWarning);
+
+                return PULL_REQUEST_FOR_BRANCH_FOUND;
             }
-            return pullRequestsFound.size() == 0;
+
+            return PULL_REQUEST_FOR_BRANCH_NOT_FOUND;
         } catch (Exception ex) {
             log.error(String.format(PULL_REQUEST_FETCHING_ERROR, ex.getMessage()), ex);
             throw new RuntimeException(ex);
