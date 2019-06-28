@@ -20,6 +20,7 @@ public class BitbucketPipelines {
     private static final String BASE_URL = "https://www.meterian.com";
     private static final String NO_JVM_ARGS = "";
     private static final String NO_CLI_ARGS = "";
+    private static final String DEFAULT_CURRENT_DIRECTORY = ".";
 
     private Map<String, String> environment = new HashMap<>();
 
@@ -38,9 +39,12 @@ public class BitbucketPipelines {
     }
 
     private int runMeterianScanner(String... cliArgs) throws Exception {
-        String currentDirectory = System.getProperty("user.dir");
+        String workspace = System.getProperty("WORKSPACE");
         environment = getOSEnvSettings();
-        environment.put("WORKSPACE", currentDirectory == null ? "." : currentDirectory);
+        environment.put("WORKSPACE",
+                (workspace == null || workspace.isEmpty()) ? DEFAULT_CURRENT_DIRECTORY : workspace);
+
+        log.info(String.format("WORKSPACE: %s", environment.get("WORKSPACE")));
 
         BitbucketConfiguration configuration = getConfiguration();
 
