@@ -189,10 +189,10 @@ public class LocalBitBucketClient {
                     return LocalDateTime.parse(dropTimeZoneStringIn(fetchedBranchNameCreationDate));
                 }
             }
+        } else {
+            log.warn(String.format("Error occurred while fetching information for branch %s, due to %s",
+                    branchName, response.getBody()));
         }
-
-        log.warn(String.format("Error occurred while fetching information for branch %s, due to %s",
-                branchName, response.getBody()));
 
         return LocalDateTime.now();
     }
