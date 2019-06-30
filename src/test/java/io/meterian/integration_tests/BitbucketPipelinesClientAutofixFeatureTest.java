@@ -1,10 +1,12 @@
 package io.meterian.integration_tests;
 
+import com.meterian.common.system.OS;
 import io.meterian.MeterianConsole;
 import io.meterian.test_management.TestManagement;
 
 import org.apache.commons.io.FileUtils;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
@@ -19,9 +21,9 @@ import java.io.PrintStream;
 import java.nio.file.Paths;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class MeterianClientAutofixFeatureTest {
+public class BitbucketPipelinesClientAutofixFeatureTest {
 
-    private static final Logger log = LoggerFactory.getLogger(MeterianClientAutofixFeatureTest.class);
+    private static final Logger log = LoggerFactory.getLogger(BitbucketPipelinesClientAutofixFeatureTest.class);
 
     private TestManagement testManagement;
     private static final String CURRENT_WORKING_DIR = System.getProperty("user.dir");
@@ -31,50 +33,61 @@ public class MeterianClientAutofixFeatureTest {
     private String repoWorkspace = Paths.get(repoWorkspaceRootFolder, bitbucketRepoName).toString();
 
     private File logFile;
-    private MeterianConsole jenkinsLogger;
+    private MeterianConsole console;
+
+    private String fixedByMeterianBranchName;
+    private String meterianBitbucketUser;
 
     @Before
     public void setup() throws IOException {
-        logFile = File.createTempFile("jenkins-logger-", Long.toString(System.nanoTime()));
-        jenkinsLogger = new MeterianConsole(new PrintStream(logFile));
-        log.info("Jenkins log file: " + logFile.toPath().toString());
+        logFile = File.createTempFile("bitbucket-pipelines-cli-logger-", Long.toString(System.nanoTime()));
+        console = new MeterianConsole(new PrintStream(logFile));
+        log.info("Bitbucket Pipelines CLI log file: " + logFile.toPath().toString());
 
-        String meterianBitbucketUser = "meterian-bot";
-        String meterianBitbucketAppPassword = System.getenv("METERIAN_BITBUCKET_APP_PASSWORD");
-        String meterianBitbucketEmail = "bot.bitbucket@meterian.io";
+        meterianBitbucketUser = new OS().getenv("METERIAN_BITBUCKET_USER");
+        String meterianBitbucketAppPassword = new OS().getenv("METERIAN_BITBUCKET_APP_PASSWORD");
+        String meterianBitbucketEmail = new OS().getenv("METERIAN_BITBUCKET_EMAIL");
 
         testManagement = new TestManagement(
                 repoWorkspace,
+                bitbucketRepoName,
                 meterianBitbucketUser,
                 meterianBitbucketAppPassword,
                 meterianBitbucketEmail,
                 log,
-                jenkinsLogger);
+                console);
+    }
+
+    @After
+    public void tearDown() throws InterruptedException {
+        testManagement.closePullRequestForBranch(bitbucketRepoName, fixedByMeterianBranchName);
+        testManagement.deleteRemoteBranch(repoWorkspace, fixedByMeterianBranchName);
     }
 
     @Test
-    public void scenario1_givenConfiguration_whenMeterianClientIsRunWithAutofixOptionForTheFirstTime_thenItShouldReturnAnalysisReportAndFixThem() throws IOException {
+    public void scenario1_givenConfiguration_whenMeterianClientIsRunWithAutofixOptionForTheFirstTime_thenItShouldReturnAnalysisReportAndFixThem() throws Exception {
         // Given: we are setup to run the meterian client against a repo that has vulnerabilities
         FileUtils.deleteDirectory(new File(repoWorkspaceRootFolder));
 
         new File(repoWorkspaceRootFolder).mkdir();
         testManagement.performGitRepoClone(
-                "meterian-bot",
+                meterianBitbucketUser,
                 bitbucketRepoName,
                 repoWorkspace,
                 "master");
 
         // Deleting remote branch automatically closes any Pull Request attached to it
         testManagement.configureGitUserNameAndEmail();
-        testManagement.deleteRemoteBranch(repoWorkspace, "fixed-by-meterian-931418a");
-        testManagement.closePullRequestForBranch(bitbucketRepoName,"fixed-by-meterian-931418a");
+        fixedByMeterianBranchName = testManagement.getFixedByMeterianBranchName(repoWorkspace,"master");
+        testManagement.closePullRequestForBranch(bitbucketRepoName, fixedByMeterianBranchName);
+        testManagement.deleteRemoteBranch(repoWorkspace, fixedByMeterianBranchName);
 
-        // When: the meterian client is run against the locally cloned gitF repo with the autofix feature (--autofix) passed as a CLI arg
-        testManagement.runMeterianClientAndReportAnalysis(jenkinsLogger);
+        // When: the meterian client is run against the locally cloned gitF repo w2ith the autofix feature (--autofix) passed as a CLI arg
+        testManagement.runPipelineCLIClientAndReportAnalysis(console);
 
         // Then: we should be able to see the expected output in the execution analysis output logs and the
         // reported vulnerabilities should be fixed, the changes committed to a branch and a pull request
-        // created onto the respective remote Bitbucket Frepository of the project
+        // created onto the respective remote Bitbucket repository of the project
         testManagement.verifyRunAnalysisLogs(logFile,
             new String[]{
                 "Client successfully authorized",
@@ -84,14 +97,10 @@ public class MeterianClientAutofixFeatureTest {
                 "Autofix applied, will run the build again.",
                 "Project information:",
                 "JAVA scan -",
-                "meterian-bot/ClientOfMutabilityDetector.git",
-                "Full report available at: ",
-                "Final results:",
-                "- security:\t100\t(minimum: 90)",
-                "- stability:\t100\t(minimum: 80)",
-                "- licensing:\t97\t(minimum: 95)",
+                String.format("%s/%s.git", meterianBitbucketUser, bitbucketRepoName),
                 "Build successful!",
-                "Finished creating pull request for org: meterian-bot, repo: meterian-bot/ClientOfMutabilityDetector, branch: fixed-by-meterian-931418a."
+                String.format("Finished creating pull request for org: %s, repo: %s/%s, branch: %s.",
+                        meterianBitbucketUser, meterianBitbucketUser, bitbucketRepoName, fixedByMeterianBranchName)
             },
             new String[]{
                 "Meterian client analysis failed with exit code ",

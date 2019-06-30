@@ -5,10 +5,12 @@ import io.meterian.AutoFixFeature;
 import io.meterian.ClientRunner;
 import io.meterian.MeterianConsole;
 import io.meterian.core.Meterian;
+import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,51 +20,69 @@ public class BitbucketPipelines {
 
     private static final String BASE_URL = "https://www.meterian.com";
     private static final String NO_JVM_ARGS = "";
+    private static final String NO_CLI_ARGS = "";
 
     private Map<String, String> environment = new HashMap<>();
+    private MeterianConsole console;
 
     public static void main(String[] args) throws Exception {
-        log.info("Bitbucket Pipelines app started");
-        BitbucketPipelines main = new BitbucketPipelines();
+        log.info("Bitbucket Pipelines CLI app started");
+        File logFile = File.createTempFile("bitbucket-pipelines-cli-logger-", Long.toString(System.nanoTime()));
+        MeterianConsole console = new MeterianConsole(new PrintStream(logFile));
+
+        BitbucketPipelines main = new BitbucketPipelines(console);
         int exitCode;
         if ((args == null) || (args.length == 0)) {
-            exitCode = main.runMeterianScanner("");
+            exitCode = main.runMeterianScanner(NO_CLI_ARGS);
         } else {
-            exitCode = main.runMeterianScanner(args[0]);
+            exitCode = main.runMeterianScanner(args);
         }
 
-        log.info("Bitbucket Pipelines app finished");
+        log.info("Bitbucket Pipelines CLI app finished");
         System.exit(exitCode);
     }
 
-    private int runMeterianScanner(String cliArg) throws Exception {
-        String currentDirectory = System.getProperty("user.dir");
-        environment = getOSEnvSettings();
-        environment.put("WORKSPACE", currentDirectory == null ? "." : currentDirectory);
+    public BitbucketPipelines(MeterianConsole console) {
+        this.console = console;
+    }
 
+    private int runMeterianScanner(String... cliArgs) throws Exception {
         BitbucketConfiguration configuration = getConfiguration();
 
-        File logFile = File.createTempFile("jenkins-logger-", Long.toString(System.nanoTime()));
-        MeterianConsole console = new MeterianConsole(new PrintStream(logFile));
+        return runClient(configuration, cliArgs);
+    }
+
+    public int runMeterianScanner(BitbucketConfiguration configuration,
+                                  Map<String, String> environment,
+                                  String... cliArgs) throws Exception {
+        this.environment = environment;
+        return runClient(configuration, cliArgs);
+    }
+
+    private int runClient(BitbucketConfiguration configuration,
+                          String[] cliArgs) throws IOException {
+        log.info(String.format("WORKSPACE: %s", environment.get("WORKSPACE")));
+
         Meterian client = Meterian.build(
                 configuration,
                 environment,
                 console,
                 NO_JVM_ARGS);
 
-        if (! client.requiredEnvironmentVariableHasBeenSet()) {
-            console.println("Required environment variable has not been set");
-            return 0;
+        if (!client.requiredEnvironmentVariableHasBeenSet()) {
+            console.println("[warning] Exiting as required environment variable(s) have not been set");
+            log.warn("Exiting as required environment variable(s) have not been set");
+            return -1;
         }
 
-        client.prepare("--interactive=false", cliArg);
+        String[] composedCliArgs = ArrayUtils.addAll(new String[]{"--interactive=false"}, cliArgs);
+        client.prepare(composedCliArgs);
 
         ClientRunner clientRunner = new ClientRunner(client, console);
         int exitCode = -1;
         if (clientRunner.userHasUsedTheAutofixFlag()) {
-           exitCode = new AutoFixFeature(
+            exitCode = new AutoFixFeature(
                     configuration,
-                    environment,
                     clientRunner,
                     console
             ).execute();
@@ -74,19 +94,16 @@ public class BitbucketPipelines {
     }
 
     private BitbucketConfiguration getConfiguration() {
-        String meterianAPIToken =
-                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_API_TOKEN");
+        environment = getOSEnvSettings();
+        environment.put("WORKSPACE", environment.getOrDefault("WORKSPACE", "."));
 
-        String meterianBitbucketAppPassword =
-                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_APP_PASSWORD");
-
-        String meterianBitbucketUser =
-                reportWarningIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_USER");
-
-        String meterianBitbucketEmail =
-                reportWarningIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_EMAIL");
+        String meterianAPIToken = environment.get("METERIAN_API_TOKEN");
+        String meterianBitbucketAppPassword = environment.get("METERIAN_BITBUCKET_APP_PASSWORD");
+        String meterianBitbucketUser = environment.get("METERIAN_BITBUCKET_USER");
+        String meterianBitbucketEmail = environment.get("METERIAN_BITBUCKET_EMAIL");
 
         String repoWorkspace = environment.getOrDefault("WORKSPACE", ".");
+
         return new BitbucketConfiguration(
                 BASE_URL,
                 meterianAPIToken,
@@ -95,22 +112,6 @@ public class BitbucketPipelines {
                 meterianBitbucketUser,
                 meterianBitbucketEmail,
                 meterianBitbucketAppPassword);
-    }
-
-    private String reportWarningIfEnvironmentVariableIsAbsent(String environmentVariableName) {
-        String value = environment.get(environmentVariableName);
-        if ((value == null) || value.trim().isEmpty()) {
-            log.warn(String.format("%s has not been set, scan will be Meterian Scanner using the default value assumed for this environment variable", environmentVariableName));
-        }
-        return value;
-    }
-
-    private String reportErrorIfEnvironmentVariableIsAbsent(String environmentVariableName) {
-        String value = environment.get(environmentVariableName);
-        if ((value == null) || (value.trim().isEmpty())) {
-            log.error(String.format("%s has not been set, cannot run Meterian Scanner without a valid value", environmentVariableName));
-        }
-        return value;
     }
 
     private Map<String, String> getOSEnvSettings() {

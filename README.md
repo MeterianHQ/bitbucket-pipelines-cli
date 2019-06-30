@@ -86,11 +86,14 @@ In order to run the tests locally we would need the following two environment va
 
 ### Bitbucket Pipeline users
 
-- `METERIAN_BITBUCKET_USER` - this is the Bitbucket user account created by yourself or someone else in the organisation (default: meterian-bot), its where all the public and private repositories are
-- `METERIAN_BITBUCKET_EMAIL` - this is the email address associated with the Bitbucket user account created in the previous step (default: bot.bitbucket@meterian.io)
-- `METERIAN_BITBUCKET_APP_PASSWORD` - this is a password generated from the above user account (learn more about it at [BitBucket: App Passwords](https://confluence.atlassian.com/bitbucket/app-passwords-828781300.html)). Look for _App passwords_ in the account settings (see https://bitbucket.org/account/user/[user account]/). 
+- `METERIAN_BITBUCKET_USER` - this is the Bitbucket user account created by yourself or someone else in the organisation (for e.g. meterian-bot), it's where all the public and private repositories are
+- `METERIAN_BITBUCKET_EMAIL` - this is the email address associated with the Bitbucket user account created in the previous step (for e.g. bot.bitbucket@meterian.io)
+- `METERIAN_BITBUCKET_APP_PASSWORD` - this is a password generated from the above user account (learn more about it at [BitBucket: App Passwords](https://confluence.atlassian.com/bitbucket/app-passwords-828781300.html)). Look for _App passwords_ in the account settings (see https://bitbucket.org/account/user/[user account]/).
 
-Note: for both the `METERIAN_GITHUB_TOKEN` and `METERIAN_BITBUCKET_APP_PASSWORD` please ensure that the scope assigned to the token or password is limited to Pull Request Read and Pull Request Write _only_. Always store them in a secure manner.
+Note:
+
+ - all the above field are mandatory to be setup via the Bitbucket Account Variables. 
+ - for both the `METERIAN_GITHUB_TOKEN` and `METERIAN_BITBUCKET_APP_PASSWORD` please ensure that the scope assigned to the token or password is limited to Pull Request Read and Pull Request Write _only_. Always store them in a secure manner.
 
 ### CircleCI configuration
 

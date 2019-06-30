@@ -29,9 +29,9 @@ import java.util.*;
 
 public class Meterian {
 
-    private static final String METERIAN_API_TOKEN_ABSENT_WARNING =
-            "[meterian] Warning: METERIAN_API_TOKEN has not been set in the config (please check meterian settings in " +
-                    "Manage Jenkins), cannot run meterian client without this setting.";
+    private static final String ENVIRONMENT_VARIABLE_ABSENT_WARNING =
+            "[meterian] Warning: %s has not been set in the config (please check for settings in " +
+                    "Bitbucket Settings > Account Variables of your Bitbucket account interface), cannot complete process without this setting.";
 
     public static class Result {
 
@@ -65,12 +65,6 @@ public class Meterian {
         return meterian;
     }
 
-    public static Meterian build(BitbucketConfiguration config, Map<String, String> environment, MeterianConsole console, String args, File clientJar) {
-        Meterian meterian = new Meterian(config, environment, console, args);
-        meterian.init(clientJar);
-        return meterian;
-    }
-
     private Meterian(BitbucketConfiguration config, Map<String, String> environment, MeterianConsole console, String args) {
         this.config = config;
         this.args = args;
@@ -94,8 +88,9 @@ public class Meterian {
     }
 
     public boolean requiredEnvironmentVariableHasBeenSet() {
-        if ((config.getMeterianAPIToken() == null) || config.getMeterianAPIToken().isEmpty()) {
-            console.println(METERIAN_API_TOKEN_ABSENT_WARNING);
+        List<String> unsetEnvVariablesList = config.checkIfEnvironmentVariableHaveBeenSet();
+        if (! unsetEnvVariablesList.isEmpty()) {
+            log.warn(String.format(ENVIRONMENT_VARIABLE_ABSENT_WARNING, unsetEnvVariablesList));
             return false;
         }
 

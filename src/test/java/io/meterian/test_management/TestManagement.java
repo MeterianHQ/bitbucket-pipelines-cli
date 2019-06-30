@@ -1,34 +1,31 @@
 package io.meterian.test_management;
 
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import com.meterian.common.system.LineGobbler;
 import com.meterian.common.system.OS;
 import com.meterian.common.system.Shell;
 import io.meterian.*;
+import io.meterian.bitbucket.LocalBitBucketClient;
 import io.meterian.bitbucket.pipelines.BitbucketConfiguration;
-import io.meterian.core.Meterian;
+import io.meterian.bitbucket.pipelines.BitbucketPipelines;
+import io.meterian.git.LocalGitClient;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.output.NullOutputStream;
-import org.apache.http.client.HttpClient;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.junit.Assert;
 import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.*;
 
 import static junit.framework.TestCase.fail;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 
 public class TestManagement {
@@ -36,56 +33,53 @@ public class TestManagement {
     private static final String BASE_URL = "https://www.meterian.com";
     private static final String NO_JVM_ARGS = "";
 
+    private static final int MAX_WAIT_POLL_TIME = 10_000; // seconds
+    private static final int POLL_RETRY_COUNT = 10; // number of times to poll before giving up
+
     private String meterianBitbucketUser;
     private String meterianBitbucketAppPassword;
     private String meterianBitbucketEmail;
 
     private final BitbucketConfiguration configuration;
+    private final LocalBitBucketClient localBitBucketClient;
 
     private String repoWorkspace;
     private Logger log;
-    private MeterianConsole jenkinsLogger;
+    private MeterianConsole console;
     private Map<String, String> environment;
     private UsernamePasswordCredentialsProvider credentialsProvider;
 
     public TestManagement(String repoWorkspace,
+                          String repoName,
                           String meterianBitbucketUser,
                           String meterianBitbucketAppPassword,
                           String meterianBitbucketEmail,
                           Logger log,
-                          MeterianConsole jenkinsLogger) {
+                          MeterianConsole console) {
         configuration = getConfiguration(
                 repoWorkspace,
                 meterianBitbucketUser,
                 meterianBitbucketAppPassword,
                 meterianBitbucketEmail);
         this.log = log;
-        this.jenkinsLogger = jenkinsLogger;
+        this.console = console;
+
+        localBitBucketClient = new LocalBitBucketClient(
+                meterianBitbucketUser,
+                meterianBitbucketAppPassword,
+                repoName,
+                console);
     }
 
-    public void runMeterianClientAndReportAnalysis(MeterianConsole jenkinsLogger) {
+    public void runPipelineCLIClientAndReportAnalysis(MeterianConsole console) {
         try {
-            File clientJar = getClientJar();
-            Meterian client = getMeterianClient(configuration, clientJar);
-            client.prepare("--interactive=false", "--autofix");
-
-            ClientRunner clientRunner =
-                    new ClientRunner(client, jenkinsLogger);
-
-            AutoFixFeature autoFixFeature = new AutoFixFeature(
+            BitbucketPipelines bitbucketPipelines = new BitbucketPipelines(console);
+            int exitCode = bitbucketPipelines.runMeterianScanner(
                     configuration,
                     environment,
-                    clientRunner,
-                    jenkinsLogger
-            );
-
-            if (clientRunner.userHasUsedTheAutofixFlag()) {
-                autoFixFeature.execute();
-            } else {
-                clientRunner.execute();
-            }
-
-            jenkinsLogger.close();
+                    "--autofix");
+            assertThat(
+                    "Meterian scanner client should NOT have terminated with a non-zero exit code", exitCode, is(0));
         } catch (Exception ex) {
             fail(String.format(
                     "Run meterian scan analysis: should not have failed with the exception: %s (cause: %s)", ex.getMessage(), ex.getCause()));
@@ -156,6 +150,26 @@ public class TestManagement {
         }
     }
 
+    public String getFixedByMeterianBranchName(String repoWorkspace, String currentBranch) throws Exception {
+        try {
+            LocalGitClient gitClient = new LocalGitClient(
+                    repoWorkspace,
+                    meterianBitbucketUser,
+                    meterianBitbucketAppPassword,
+                    meterianBitbucketUser,
+                    console
+            );
+
+            gitClient.checkoutBranch(currentBranch);
+            return String.format("fixed-by-meterian-%s", gitClient.getCurrentBranchSHA());
+        } catch (Exception ex) {
+            console.println(String.format(
+                    "Could not fetch the name of the fixed-by-meterian-xxxx branch, due to error: %s" , ex.getMessage())
+            );
+            throw new Exception(ex);
+        }
+    }
+
     public void deleteRemoteBranch(String workingFolder, String branchName) {
         try {
             Git git = Git.open(new File(workingFolder));
@@ -168,17 +182,18 @@ public class TestManagement {
                     .setRemote("origin")
                     .call();
         } catch (IOException | GitAPIException ex) {
-            jenkinsLogger.println(
+            console.println(
                     String.format("We were unable to remove a remote branch %s from the repo, " +
                             "maybe the branch does not exist or the name has changed", branchName));
         }
     }
 
-    public void closePullRequestForBranch(String bitbucketRepoName, String branchName) {
+    public void closePullRequestForBranch(String bitbucketRepoName, String branchName) throws InterruptedException {
+        log.info(String.format("Attempting to close pull request for linked branch %s", branchName));
         try {
-            String pullRequestId = getOpenPullRequestIdForBranch(bitbucketRepoName, branchName);
+            String pullRequestId = localBitBucketClient.getOpenPullRequestIdForBranch(bitbucketRepoName, branchName);
             if (pullRequestId.isEmpty()) {
-                log.info(String.format("No pull request for linked to branch %s proceeding forward", branchName));
+                log.info(String.format("No pull request for linked branch %s, proceeding forward", branchName));
                 return;
             }
 
@@ -191,6 +206,8 @@ public class TestManagement {
                     )
             ).basicAuth(meterianBitbucketUser, meterianBitbucketAppPassword)
                     .asString();
+
+            pollToCheckIfPullRequestIsClosed(bitbucketRepoName, branchName);
         } catch (UnirestException ex) {
             log.error(
                     String.format(
@@ -199,48 +216,28 @@ public class TestManagement {
         }
     }
 
-    private String getOpenPullRequestIdForBranch(String bitbucketRepoName, String branchName) throws UnirestException {
-        List pullRequests = getAllOpenPullRequests(bitbucketRepoName);
-        Optional foundPullRequest = pullRequests
-                .stream()
-                .filter(eachPullRequest ->
-                        ((JSONObject) eachPullRequest)
-                                .getJSONObject("source")
-                                .getJSONObject("branch")
-                                .get("name")
-                                .equals(branchName)
-                ).findFirst();
-
-        if (foundPullRequest.isPresent()) {
-            JSONObject pullRequestAsJsonObject = (JSONObject) foundPullRequest.get();
-            return pullRequestAsJsonObject.get("id").toString();
+    private void pollToCheckIfPullRequestIsClosed(
+            String bitbucketRepoName, String branchName) throws UnirestException, InterruptedException {
+        int retryCount = 0;
+        while (pullRequestIsNotClosed(bitbucketRepoName, branchName)) {
+            // Wait for a bit for the changes to reflect across the system
+            // before querying for anything via REST API calls.
+            // It came to light during running tests on CI/CD and local machine.
+            Thread.sleep(MAX_WAIT_POLL_TIME);
+            retryCount++;
+            if (retryCount == POLL_RETRY_COUNT) {
+                String retryFailedMessage = String.format("Giving up, pull request linked to branch still NOT closed %s, cannot proceed forward.", branchName);
+                log.error(retryFailedMessage);
+                Assert.fail(retryFailedMessage);
+            }
         }
-        return "";
+        log.info(String.format("Pull request for linked branch %s is closed, proceeding forward", branchName));
     }
 
-    private List getAllOpenPullRequests(String bitbucketRepoName) throws UnirestException {
-        HttpResponse<JsonNode> response =
-                Unirest.get(String.format(
-                        "https://api.bitbucket.org/2.0/repositories/%s/%s/pullrequests",
-                        meterianBitbucketUser,
-                        bitbucketRepoName))
-                        .header("accept", "application/json")
-                        .queryString("state", "OPEN")
-                        .asJson();
-
-        return parsePullRequestsList(response);
+    private boolean pullRequestIsNotClosed(String bitbucketRepoName, String branchName) throws UnirestException {
+        return ! localBitBucketClient
+                    .getOpenPullRequestIdForBranch(bitbucketRepoName, branchName).isEmpty();
     }
-
-    private List parsePullRequestsList(HttpResponse<JsonNode> response) {
-        JsonNode body = response.getBody();
-        JSONArray pullRequests = body.getObject().getJSONArray("values");
-        List results = new ArrayList();
-        for (int i=0; i < pullRequests.length(); i++) {
-            results.add(pullRequests.get(i));
-        }
-        return results;
-    }
-
 
     private Map<String, String> getEnvironment() {
         Map<String, String> environment = new HashMap<>();
@@ -264,27 +261,20 @@ public class TestManagement {
         environment.put("WORKSPACE", repoWorkspace);
 
         String meterianAPIToken = environment.get("METERIAN_API_TOKEN");
-        assertThat(
-                "METERIAN_API_TOKEN has not been set, cannot run test without a valid value", meterianAPIToken, notNullValue());
+        assertValidityOf("METERIAN_API_TOKEN", meterianAPIToken);
 
         this.meterianBitbucketUser = meterianBitbucketUser;
-        if ((meterianBitbucketUser == null) || meterianBitbucketUser.trim().isEmpty()) {
-            jenkinsLogger.println(
-                    "METERIAN_BITBUCKET_USER has not been set, tests will be run using the default value assumed for this environment variable");
-        }
+        assertValidityOf("METERIAN_BITBUCKET_USER", meterianBitbucketUser);
 
         this.meterianBitbucketAppPassword = meterianBitbucketAppPassword;
-        assertThat(
-                "METERIAN_BITBUCKET_APP_PASSWORD has not been set, cannot run test without a valid value", meterianBitbucketAppPassword, notNullValue());
+        assertValidityOf("METERIAN_BITBUCKET_APP_PASSWORD", meterianBitbucketAppPassword);
 
         credentialsProvider = new UsernamePasswordCredentialsProvider(
                 meterianBitbucketUser,
                 meterianBitbucketAppPassword);
 
         this.meterianBitbucketEmail = meterianBitbucketEmail;
-        if ((meterianBitbucketEmail == null) || meterianBitbucketEmail.trim().isEmpty()) {
-            jenkinsLogger.println("METERIAN_BITBUCKET_EMAIL has not been set, tests will be run using the default value assumed for this environment variable");
-        }
+        assertValidityOf("METERIAN_BITBUCKET_EMAIL", meterianBitbucketEmail);
 
         return new BitbucketConfiguration(
                 BASE_URL,
@@ -296,12 +286,10 @@ public class TestManagement {
                 meterianBitbucketAppPassword);
     }
 
-    private File getClientJar() throws IOException {
-        return new ClientDownloader(newHttpClient(), BASE_URL, nullPrintStream()).load();
-    }
-
-    private Meterian getMeterianClient(BitbucketConfiguration configuration, File clientJar) {
-        return Meterian.build(configuration, environment, jenkinsLogger, NO_JVM_ARGS, clientJar);
+    private void assertValidityOf(String variableName, String variableValue) {
+        String reason = String.format("%s has not been set, cannot run test without a valid value", variableName);
+        assertThat(reason, variableValue, notNullValue());
+        assertFalse(reason, variableValue.isEmpty());
     }
 
     private int runCommand(String[] command, String workingFolder, Logger log) throws IOException {
@@ -318,40 +306,5 @@ public class TestManagement {
         );
 
         return task.waitFor();
-    }
-
-    private MeterianConsole nullPrintStream() {
-        return new MeterianConsole(
-                new PrintStream(new NullOutputStream())
-        );
-    }
-
-    private static HttpClient newHttpClient() {
-        return new HttpClientFactory().newHttpClient(new HttpClientFactory.Config() {
-            @Override
-            public int getHttpConnectTimeout() {
-                return Integer.MAX_VALUE;
-            }
-
-            @Override
-            public int getHttpSocketTimeout() {
-                return Integer.MAX_VALUE;
-            }
-
-            @Override
-            public int getHttpMaxTotalConnections() {
-                return 100;
-            }
-
-            @Override
-            public int getHttpMaxDefaultConnectionsPerRoute() {
-                return 100;
-            }
-
-            @Override
-            public String getHttpUserAgent() {
-                // TODO Auto-generated method stub
-                return null;
-            }});
     }
 }

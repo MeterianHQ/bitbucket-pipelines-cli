@@ -6,8 +6,6 @@ import io.meterian.bitbucket.pipelines.BitbucketConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-
 public class AutoFixFeature {
 
     private static final String ABORTING_BRANCH_AND_PR_CREATION_PROCESS = "[meterian] Aborting, not continuing with rest of the local/remote branch or pull request creation process.";
@@ -25,23 +23,22 @@ public class AutoFixFeature {
 
     private final LocalGitClient localGitClient;
     private ClientRunner clientRunner;
-    private MeterianConsole jenkinsLogger;
+    private MeterianConsole console;
     private BitbucketConfiguration configuration;
 
     public AutoFixFeature(BitbucketConfiguration configuration,
-                          Map<String, String> environment,
                           ClientRunner clientRunner,
-                          MeterianConsole jenkinsLogger) {
+                          MeterianConsole console) {
         this.configuration = configuration;
         this.clientRunner = clientRunner;
-        this.jenkinsLogger = jenkinsLogger;
+        this.console = console;
 
         localGitClient = new LocalGitClient(
                 configuration.getRepoWorkspace(),
                 configuration.getMeterianBitbucketUser(),
                 configuration.getMeterianBitbucketAppPassword(),
                 configuration.getMeterianBitbucketEmail(),
-                jenkinsLogger);
+                console);
     }
 
     public int execute() {
@@ -52,7 +49,7 @@ public class AutoFixFeature {
                         BRANCH_ALREADY_FIXED_WARNING, localGitClient.getCurrentBranch()
                 );
                 log.warn(thisBranchIsFixedMessage);
-                jenkinsLogger.println(thisBranchIsFixedMessage);
+                console.println(thisBranchIsFixedMessage);
 
                 return SUCCESSFUL;
             } else if (localGitClient.currentBranchHasNotBeenFixedYet()) {
@@ -60,7 +57,7 @@ public class AutoFixFeature {
                     localGitClient.resetChanges();
 
                     log.error(ABORTING_BRANCH_AND_PR_CREATION_PROCESS);
-                    jenkinsLogger.println(ABORTING_BRANCH_AND_PR_CREATION_PROCESS);
+                    console.println(ABORTING_BRANCH_AND_PR_CREATION_PROCESS);
 
                     return FAILED;
                 }
@@ -70,7 +67,7 @@ public class AutoFixFeature {
                         LOCAL_BRANCH_ALREADY_EXISTS_WARNING, localGitClient.getFixedBranchNameForCurrentBranch()
                 );
                 log.warn(fixedBranchExistsMessage);
-                jenkinsLogger.println(fixedBranchExistsMessage);
+                console.println(fixedBranchExistsMessage);
 
                 exitCode = FAILED;
             }
@@ -84,7 +81,7 @@ public class AutoFixFeature {
                 localGitClient.applyCommitsToLocalRepo();
             } else {
                 log.warn(LocalGitClient.NO_CHANGES_FOUND_WARNING);
-                jenkinsLogger.println(LocalGitClient.NO_CHANGES_FOUND_WARNING);
+                console.println(LocalGitClient.NO_CHANGES_FOUND_WARNING);
             }
         } catch (Exception ex) {
             log.error(String.format("Commits have not been applied due to the error: %s", ex.getMessage()), ex);
@@ -97,9 +94,8 @@ public class AutoFixFeature {
             LocalBitBucketClient localBitBucketClient = new LocalBitBucketClient(
                     configuration.getMeterianBitbucketUser(),
                     configuration.getMeterianBitbucketAppPassword(),
-                    localGitClient.getOrgOrUsername(),
                     localGitClient.getRepositoryName(),
-                    jenkinsLogger);
+                    console);
             localBitBucketClient.createPullRequest(localGitClient.getCurrentBranch());
         } catch (Exception ex) {
             log.error(String.format("Pull Request was not created, due to the error: %s", ex.getMessage()), ex);
