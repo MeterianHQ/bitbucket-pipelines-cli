@@ -24,7 +24,6 @@ public class BitbucketPipelines {
 
     private Map<String, String> environment = new HashMap<>();
     private MeterianConsole console;
-    private boolean oneOrMoreErrors = false;
 
     public static void main(String[] args) throws Exception {
         log.info("Bitbucket Pipelines CLI app started");
@@ -71,7 +70,8 @@ public class BitbucketPipelines {
                 NO_JVM_ARGS);
 
         if (!client.requiredEnvironmentVariableHasBeenSet()) {
-            console.println("Required environment variable has not been set");
+            console.println("[warning] Exiting as required environment variable(s) have not been set");
+            log.warn("Exiting as required environment variable(s) have not been set");
             return -1;
         }
 
@@ -97,22 +97,10 @@ public class BitbucketPipelines {
     private BitbucketConfiguration getConfiguration() {
         environment = getOSEnvSettings();
 
-        String meterianAPIToken =
-                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_API_TOKEN");
-
-        String meterianBitbucketAppPassword =
-                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_APP_PASSWORD");
-
-        String meterianBitbucketUser =
-                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_USER");
-
-        String meterianBitbucketEmail =
-                reportErrorIfEnvironmentVariableIsAbsent("METERIAN_BITBUCKET_EMAIL");
-
-        if (oneOrMoreErrors) {
-            log.warn("Exiting, due to unset environment variables");
-            System.exit(-1);
-        }
+        String meterianAPIToken = environment.get("METERIAN_API_TOKEN");
+        String meterianBitbucketAppPassword = environment.get("METERIAN_BITBUCKET_APP_PASSWORD");
+        String meterianBitbucketUser = environment.get("METERIAN_BITBUCKET_USER");
+        String meterianBitbucketEmail = environment.get("METERIAN_BITBUCKET_EMAIL");
 
         String repoWorkspace = environment.getOrDefault("WORKSPACE", ".");
 
@@ -124,16 +112,6 @@ public class BitbucketPipelines {
                 meterianBitbucketUser,
                 meterianBitbucketEmail,
                 meterianBitbucketAppPassword);
-    }
-
-    private String reportErrorIfEnvironmentVariableIsAbsent(String environmentVariableName) {
-        String value = environment.get(environmentVariableName);
-        if ((value == null) || (value.trim().isEmpty())) {
-            oneOrMoreErrors = true;
-            log.error(String.format("%s has not been set, cannot run Meterian Scanner without a valid value", environmentVariableName));
-
-        }
-        return value;
     }
 
     private Map<String, String> getOSEnvSettings() {

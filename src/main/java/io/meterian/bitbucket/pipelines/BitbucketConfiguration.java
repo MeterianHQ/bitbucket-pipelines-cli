@@ -2,7 +2,11 @@ package io.meterian.bitbucket.pipelines;
 
 import io.meterian.HttpClientFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class BitbucketConfiguration implements HttpClientFactory.Config {
+
     private static final String DEFAULT_BASE_URL = "https://www.meterian.io";
     private static final int ONE_MINUTE = 60 * 1000;
 
@@ -13,6 +17,9 @@ public class BitbucketConfiguration implements HttpClientFactory.Config {
     private final String meterianBitbucketUser;
     private final String meterianBitbucketEmail;
     private final String meterianBitbucketAppPassword;
+
+    private List<String> unsetEnvVariablesList = new ArrayList<>();
+
     private String repoWorkspace;
 
     public BitbucketConfiguration(String baseUrl,
@@ -66,6 +73,21 @@ public class BitbucketConfiguration implements HttpClientFactory.Config {
 
     public String getRepoWorkspace() {
         return repoWorkspace;
+    }
+
+    public List<String> checkIfEnvironmentVariableHaveBeenSet() {
+        addEnvironmentVariableToListIfAbsent(meterianAPIToken, "METERIAN_API_TOKEN");
+        addEnvironmentVariableToListIfAbsent(meterianBitbucketUser,"METERIAN_BITBUCKET_USER");
+        addEnvironmentVariableToListIfAbsent(meterianBitbucketAppPassword, "METERIAN_BITBUCKET_APP_PASSWORD");
+        addEnvironmentVariableToListIfAbsent(meterianBitbucketEmail,"METERIAN_BITBUCKET_EMAIL");
+
+        return unsetEnvVariablesList;
+    }
+
+    private void addEnvironmentVariableToListIfAbsent(String value, String environmentVariableName) {
+        if ((value == null) || (value.trim().isEmpty())) {
+            unsetEnvVariablesList.add(environmentVariableName);
+        }
     }
 
     @Override
