@@ -65,12 +65,6 @@ public class Meterian {
         return meterian;
     }
 
-    public static Meterian build(BitbucketConfiguration config, Map<String, String> environment, MeterianConsole console, String args, File clientJar) {
-        Meterian meterian = new Meterian(config, environment, console, args);
-        meterian.init(clientJar);
-        return meterian;
-    }
-
     private Meterian(BitbucketConfiguration config, Map<String, String> environment, MeterianConsole console, String args) {
         this.config = config;
         this.args = args;
