@@ -50,6 +50,7 @@ public class BitbucketPipelinesClientAutofixFeatureTest {
 
         testManagement = new TestManagement(
                 repoWorkspace,
+                bitbucketRepoName,
                 meterianBitbucketUser,
                 meterianBitbucketAppPassword,
                 meterianBitbucketEmail,

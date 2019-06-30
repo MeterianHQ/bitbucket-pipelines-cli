@@ -6,8 +6,6 @@ import io.meterian.bitbucket.pipelines.BitbucketConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-
 public class AutoFixFeature {
 
     private static final String ABORTING_BRANCH_AND_PR_CREATION_PROCESS = "[meterian] Aborting, not continuing with rest of the local/remote branch or pull request creation process.";
@@ -29,7 +27,6 @@ public class AutoFixFeature {
     private BitbucketConfiguration configuration;
 
     public AutoFixFeature(BitbucketConfiguration configuration,
-                          Map<String, String> environment,
                           ClientRunner clientRunner,
                           MeterianConsole console) {
         this.configuration = configuration;
@@ -97,7 +94,6 @@ public class AutoFixFeature {
             LocalBitBucketClient localBitBucketClient = new LocalBitBucketClient(
                     configuration.getMeterianBitbucketUser(),
                     configuration.getMeterianBitbucketAppPassword(),
-                    localGitClient.getOrgOrUsername(),
                     localGitClient.getRepositoryName(),
                     console);
             localBitBucketClient.createPullRequest(localGitClient.getCurrentBranch());

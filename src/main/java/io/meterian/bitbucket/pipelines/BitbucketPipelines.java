@@ -83,7 +83,6 @@ public class BitbucketPipelines {
         if (clientRunner.userHasUsedTheAutofixFlag()) {
             exitCode = new AutoFixFeature(
                     configuration,
-                    environment,
                     clientRunner,
                     console
             ).execute();

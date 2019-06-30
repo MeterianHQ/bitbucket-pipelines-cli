@@ -1,13 +1,12 @@
 package io.meterian.test_management;
 
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import com.meterian.common.system.LineGobbler;
 import com.meterian.common.system.OS;
 import com.meterian.common.system.Shell;
 import io.meterian.*;
+import io.meterian.bitbucket.LocalBitBucketClient;
 import io.meterian.bitbucket.pipelines.BitbucketConfiguration;
 import io.meterian.bitbucket.pipelines.BitbucketPipelines;
 import io.meterian.git.LocalGitClient;
@@ -16,8 +15,6 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.junit.Assert;
 import org.slf4j.Logger;
 
@@ -25,7 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-import static junit.framework.TestCase.assertTrue;
 import static junit.framework.TestCase.fail;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -45,6 +41,7 @@ public class TestManagement {
     private String meterianBitbucketEmail;
 
     private final BitbucketConfiguration configuration;
+    private final LocalBitBucketClient localBitBucketClient;
 
     private String repoWorkspace;
     private Logger log;
@@ -53,6 +50,7 @@ public class TestManagement {
     private UsernamePasswordCredentialsProvider credentialsProvider;
 
     public TestManagement(String repoWorkspace,
+                          String repoName,
                           String meterianBitbucketUser,
                           String meterianBitbucketAppPassword,
                           String meterianBitbucketEmail,
@@ -65,6 +63,12 @@ public class TestManagement {
                 meterianBitbucketEmail);
         this.log = log;
         this.console = console;
+
+        localBitBucketClient = new LocalBitBucketClient(
+                meterianBitbucketUser,
+                meterianBitbucketAppPassword,
+                repoName,
+                console);
     }
 
     public void runPipelineCLIClientAndReportAnalysis(MeterianConsole console) {
@@ -187,7 +191,7 @@ public class TestManagement {
     public void closePullRequestForBranch(String bitbucketRepoName, String branchName) throws InterruptedException {
         log.info(String.format("Attempting to close pull request for linked branch %s", branchName));
         try {
-            String pullRequestId = getOpenPullRequestIdForBranch(bitbucketRepoName, branchName);
+            String pullRequestId = localBitBucketClient.getOpenPullRequestIdForBranch(bitbucketRepoName, branchName);
             if (pullRequestId.isEmpty()) {
                 log.info(String.format("No pull request for linked branch %s, proceeding forward", branchName));
                 return;
@@ -215,7 +219,7 @@ public class TestManagement {
     private void pollToCheckIfPullRequestIsClosed(
             String bitbucketRepoName, String branchName) throws UnirestException, InterruptedException {
         int retryCount = 0;
-        while (getOpenPullRequestIdForBranch(bitbucketRepoName, branchName).isEmpty()) {
+        while (pullRequestIsNotClosed(bitbucketRepoName, branchName)) {
             // Wait for a bit for the changes to reflect across the system
             // before querying for anything via REST API calls.
             // It came to light during running tests on CI/CD and local machine.
@@ -230,48 +234,10 @@ public class TestManagement {
         log.info(String.format("Pull request for linked branch %s is closed, proceeding forward", branchName));
     }
 
-    private String getOpenPullRequestIdForBranch(String bitbucketRepoName, String branchName) throws UnirestException {
-        List pullRequests = getAllOpenPullRequests(bitbucketRepoName);
-        Optional foundPullRequest = pullRequests
-                .stream()
-                .filter(eachPullRequest ->
-                        ((JSONObject) eachPullRequest)
-                                .getJSONObject("source")
-                                .getJSONObject("branch")
-                                .get("name")
-                                .equals(branchName)
-                ).findFirst();
-
-        if (foundPullRequest.isPresent()) {
-            JSONObject pullRequestAsJsonObject = (JSONObject) foundPullRequest.get();
-            return pullRequestAsJsonObject.get("id").toString();
-        }
-        return "";
+    private boolean pullRequestIsNotClosed(String bitbucketRepoName, String branchName) throws UnirestException {
+        return ! localBitBucketClient
+                    .getOpenPullRequestIdForBranch(bitbucketRepoName, branchName).isEmpty();
     }
-
-    private List getAllOpenPullRequests(String bitbucketRepoName) throws UnirestException {
-        HttpResponse<JsonNode> response =
-                Unirest.get(String.format(
-                        "https://api.bitbucket.org/2.0/repositories/%s/%s/pullrequests",
-                        meterianBitbucketUser,
-                        bitbucketRepoName))
-                        .header("accept", "application/json")
-                        .queryString("state", "OPEN")
-                        .asJson();
-
-        return parsePullRequestsList(response);
-    }
-
-    private List parsePullRequestsList(HttpResponse<JsonNode> response) {
-        JsonNode body = response.getBody();
-        JSONArray pullRequests = body.getObject().getJSONArray("values");
-        List results = new ArrayList();
-        for (int i=0; i < pullRequests.length(); i++) {
-            results.add(pullRequests.get(i));
-        }
-        return results;
-    }
-
 
     private Map<String, String> getEnvironment() {
         Map<String, String> environment = new HashMap<>();
