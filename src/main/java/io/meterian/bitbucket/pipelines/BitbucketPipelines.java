@@ -95,6 +95,7 @@ public class BitbucketPipelines {
 
     private BitbucketConfiguration getConfiguration() {
         environment = getOSEnvSettings();
+        environment.put("WORKSPACE", environment.getOrDefault("WORKSPACE", "."));
 
         String meterianAPIToken = environment.get("METERIAN_API_TOKEN");
         String meterianBitbucketAppPassword = environment.get("METERIAN_BITBUCKET_APP_PASSWORD");
